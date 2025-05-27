@@ -5,23 +5,37 @@
 # =========================================================================
 import pandas as pd
 import requests
+from bs4 import BeautifulSoup
 from datetime import datetime
 
 # =========================================================================
 # Get Weather Data
 # =========================================================================
 def get_weather_data():
-    """Fetch weather data from a URL, parse the first HTML table, and return it as a DataFrame."""
+    """Fetch weather data by scraping the HTML table with id 'weather_records' and return as DataFrame."""
     url = "https://practicum-content.s3.us-west-1.amazonaws.com/data-analyst-eng/moved_chicago_weather_2017.html"
     response = requests.get(url)
     response.raise_for_status()
 
-    tables = pd.read_html(response.text)
-    print(f"Number of tables found: {len(tables)}")
+    soup = BeautifulSoup(response.text, 'lxml')
+    table = soup.find('table', attrs={"id": "weather_records"})
 
-    weather_df = tables[0]
-    print(weather_df.head())
-    return weather_df
+    # Extract headers
+    heading_table = [th.text for th in table.find_all('th')]
+
+    # Extract rows
+    content = []
+    for row in table.find_all('tr'):
+        if not row.find_all('th'):  # skip header rows
+            content.append([td.text for td in row.find_all('td')])
+
+    # Create DataFrame
+    weather_records = pd.DataFrame(content, columns=heading_table)
+
+    # Convert Temperature to float to prevent issues later on
+    weather_records['Temperature'] = weather_records['Temperature'].astype(float)
+
+    return weather_records
 
 # =========================================================================
 # Clean Weather Data
